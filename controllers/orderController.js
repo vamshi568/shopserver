@@ -4,7 +4,7 @@ const Order = require("../models/Order");
 exports.createOrder = async (req, res) => {
   const {
     customer_id,
-    order_date,
+
     delivery_date,
     additional_details,
     photos,
@@ -15,7 +15,7 @@ exports.createOrder = async (req, res) => {
   try {
     const order = new Order({
       customer_id,
-      order_date,
+
       delivery_date,
       additional_details,
       photos,
@@ -46,7 +46,21 @@ exports.getOrderById = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
-    res.json(order);
+    const customer = await Customer.findOne({
+      customer_id: order.customer_id,
+    });
+    const now = new Date();
+    const deliveryDate = new Date(order.delivery_date);
+    const timeDifference = deliveryDate - now;
+    const daysLeft = Math.ceil(timeDifference / (1000 * 60 * 60 * 24));
+    const populatedOrder = {
+      ...order.toJSON(),
+      customerName: customer.name,
+      phone_number: customer.phone_number,
+      profile_pic: customer.profile_pic,
+      daysLeft,
+    };
+    res.json(populatedOrder);
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server error");
@@ -100,7 +114,6 @@ exports.deleteOrder = async (req, res) => {
   }
 };
 
-// New endpoint to get completed orders sorted by updated_at
 exports.getCompletedOrders = async (req, res) => {
   try {
     const orders = await Order.find({ status: "Completed" }).sort({
@@ -123,7 +136,7 @@ exports.getCompletedOrders = async (req, res) => {
 };
 exports.getIncompleteOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ status: { $ne: "Completed" } }) // Find orders where status is not 'Completed'
+    const orders = await Order.find({ status: "Pending" }) // Find orders where status is not 'Completed'
       .sort({ delivery_date: 1 }); // Populate customer details
     const populatedOrders = await Promise.all(
       orders.map(async (order) => {
@@ -134,8 +147,8 @@ exports.getIncompleteOrders = async (req, res) => {
         const deliveryDate = new Date(order.delivery_date);
         const timeDifference = deliveryDate - now;
         const daysLeft = Math.ceil(timeDifference / (1000 * 60 * 60 * 24));
-  
-        return { ...order.toJSON(), customerName: customer.name,daysLeft };
+
+        return { ...order.toJSON(), customerName: customer.name, daysLeft };
       })
     );
     res.json(populatedOrders);

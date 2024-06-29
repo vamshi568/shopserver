@@ -1,4 +1,5 @@
 const Measurement = require('../models/Measurement');
+const Customer = require('../models/Customer');
 
 exports.createMeasurement = async (req, res) => {
   const { customer_id, shirt_measurements, pants_measurements } = req.body;
@@ -6,12 +7,22 @@ exports.createMeasurement = async (req, res) => {
   try {
     const measurement = new Measurement({ customer_id, shirt_measurements, pants_measurements });
     await measurement.save();
+
+    // add the measurement id to the customer measurements array
+    const customer = await Customer.findOne({customer_id: customer_id});
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+    customer.measurements.unshift(measurement._id);
+    await customer.save();
+
     res.json(measurement);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
   }
 };
+
 
 exports.getMeasurements = async (req, res) => {
   try {

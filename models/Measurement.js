@@ -1,22 +1,21 @@
 const mongoose = require('mongoose');
 
 const measurementSchema = new mongoose.Schema({
-  customer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
+  customer_id: { type: Number, required: true },
   shirt_measurements: {
-    neck: Number,
-    chest: Number,
-    waist: Number,
-    sleeve_length: Number,
-    shoulder_width: Number
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   pants_measurements: {
-    waist: Number,
-    hip: Number,
-    inseam: Number,
-    outseam: Number,
-    thigh: Number
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   date_taken: { type: Date, default: Date.now }
-});
+}, { strict: false ,id: false});
+
+measurementSchema.set('toObject', { getters: true, minimize: false });
+measurementSchema.set('toJSON', { getters: true, minimize: false });
+
+
 
 module.exports = mongoose.model('Measurement', measurementSchema);
