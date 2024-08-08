@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const measurementSchema = new mongoose.Schema({
-  customer_id: { type: Number, required: true },
+  customer_id: { type: Number },
   shirt_measurements: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
@@ -11,11 +11,11 @@ const measurementSchema = new mongoose.Schema({
     default: {}
   },
   date_taken: { type: Date, default: Date.now }
-}, { strict: false ,id: false});
+}, { strict: false });
 
 measurementSchema.set('toObject', { getters: true, minimize: false });
 measurementSchema.set('toJSON', { getters: true, minimize: false });
 
-
-
-module.exports = mongoose.model('Measurement', measurementSchema);
+module.exports = (db) => {
+  return db ? db.model('Measurement', measurementSchema): measurementSchema;
+};

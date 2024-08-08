@@ -1,26 +1,34 @@
-const Customer = require("../models/Customer");
-const Order = require("../models/Order");
+const mongoose = require("mongoose");
+const connectDB = require("../config/db");
+
+const getOrderModel = (db) => require("../models/Order")(db);
+const getCustomerModel = (db) => require("../models/Customer")(db);
 
 exports.createOrder = async (req, res) => {
   const {
     customer_id,
-
     delivery_date,
     additional_details,
     photos,
     type_cloth,
     status,
+    isUrgent,
   } = req.body;
+  const dbName = req.user.dbName; 
 
   try {
+    const connection = await connectDB(dbName);
+    const Order = getOrderModel(connection);
+    const Customer = getCustomerModel(connection);
+    
     const order = new Order({
       customer_id,
-
       delivery_date,
       additional_details,
       photos,
       type_cloth,
       status,
+      isUrgent,
     });
     await order.save();
     res.json(order);
@@ -31,7 +39,11 @@ exports.createOrder = async (req, res) => {
 };
 
 exports.getOrders = async (req, res) => {
+  const dbName = req.user.dbName; 
+
   try {
+    const connection = await connectDB(dbName);
+    const Order = getOrderModel(connection);
     const orders = await Order.find().populate("customer_id");
     res.json(orders);
   } catch (err) {
@@ -41,14 +53,18 @@ exports.getOrders = async (req, res) => {
 };
 
 exports.getOrderById = async (req, res) => {
+  const dbName = req.user.dbName; 
+
   try {
+    const connection = await connectDB(dbName);
+    const Order = getOrderModel(connection);
+    const Customer = getCustomerModel(connection);
+
     const order = await Order.findById(req.params.id).populate("customer_id");
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
-    const customer = await Customer.findOne({
-      customer_id: order.customer_id,
-    });
+    const customer = await Customer.findOne({ customer_id: order.customer_id });
     const now = new Date();
     const deliveryDate = new Date(order.delivery_date);
     const timeDifference = deliveryDate - now;
@@ -75,9 +91,14 @@ exports.updateOrder = async (req, res) => {
     status,
     photos,
     type_cloth,
+    isUrgent,
   } = req.body;
+  const dbName = req.user.dbName; 
 
   try {
+    const connection = await connectDB(dbName);
+    const Order = getOrderModel(connection);
+
     const order = await Order.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -89,7 +110,8 @@ exports.updateOrder = async (req, res) => {
     order.status = status || order.status;
     order.photos = photos || order.photos;
     order.type_cloth = type_cloth || order.type_cloth;
-    order.updated_at = Date.now(); // Set the updated_at field to the current date and time
+    order.updated_at = Date.now(); 
+    order.isUrgent = isUrgent || order.isUrgent;
 
     await order.save();
     res.json(order);
@@ -100,7 +122,12 @@ exports.updateOrder = async (req, res) => {
 };
 
 exports.deleteOrder = async (req, res) => {
+  const dbName = req.user.dbName; 
+
   try {
+    const connection = await connectDB(dbName);
+    const Order = getOrderModel(connection);
+
     const order = await Order.findById(req.params.id);
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -115,7 +142,12 @@ exports.deleteOrder = async (req, res) => {
 };
 
 exports.getCompletedOrders = async (req, res) => {
+  const dbName = req.user.dbName; 
+
   try {
+    const connection = await connectDB(dbName);
+    const Order = getOrderModel(connection);
+    const Customer = getCustomerModel(connection);
     const orders = await Order.find({ status: "Completed" }).sort({
       updated_at: -1,
     });
@@ -134,10 +166,18 @@ exports.getCompletedOrders = async (req, res) => {
     res.status(500).send("Server error");
   }
 };
+
 exports.getIncompleteOrders = async (req, res) => {
+  const dbName = req.user.dbName; 
+
   try {
-    const orders = await Order.find({ status: "Pending" }) // Find orders where status is not 'Completed'
-      .sort({ delivery_date: 1 }); // Populate customer details
+    const connection = await connectDB(dbName);
+    const Order = getOrderModel(connection);
+    const Customer = getCustomerModel(connection);
+
+    const orders = await Order.find({ status: "Pending" }).sort({
+      delivery_date: 1,
+    });
     const populatedOrders = await Promise.all(
       orders.map(async (order) => {
         const customer = await Customer.findOne({
@@ -153,7 +193,38 @@ exports.getIncompleteOrders = async (req, res) => {
     );
     res.json(populatedOrders);
   } catch (err) {
-    console.error("Error fetching incomplete orders:", err);
+    console.error(err.message,'populatedOrders');
+    res.status(500).send("Server error");
+  }
+};
+exports.getDeleveredOrders = async (req, res) => {
+  const dbName = req.user.dbName; 
+
+  try {
+    const connection = await connectDB(dbName);
+    const Order = getOrderModel(connection);
+    const Customer = getCustomerModel(connection);
+
+    const orders = await Order.find({ status: "Delivered" }).sort({
+      delivery_date: 1,
+    });
+    const populatedOrders = await Promise.all(
+      orders.map(async (order) => {
+        const customer = await Customer.findOne({
+          customer_id: order.customer_id,
+        });
+        const now = new Date();
+        const deliveredDate = new Date(order.updated_at);
+        const timeDifference = deliveredDate - now;
+        const daysLeft = Math.ceil(timeDifference / (1000 * 60 * 60 * 24));
+
+        return { ...order.toJSON(), customerName: customer.name, daysLeft };
+      })
+    );
+
+    res.json(populatedOrders);
+  } catch (err) {
+    console.error(err.message);
     res.status(500).send("Server error");
   }
 };

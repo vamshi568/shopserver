@@ -17,7 +17,29 @@ const userSchema = new mongoose.Schema({
   date: {
     type: Date,
     default: Date.now
+  },
+  phoneNumber: {
+    type: String
+  }
+  ,
+  shopName: {
+    type: String
+  },
+  shopAddress: {
+    type: mongoose.Schema.Types.Mixed
+  },
+  shopPhoto: {
+    type: String
+  },
+  profilePhoto: {
+    type: String
+  },
+  aboutUs: {
+    type: String
   }
 });
-
-module.exports = mongoose.model('User', userSchema);
+module.exports = (db) => {
+  return db ? db.model('User', userSchema):  
+    userSchema
+  
+};
